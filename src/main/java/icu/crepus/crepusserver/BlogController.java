@@ -1,9 +1,9 @@
 package icu.crepus.crepusserver;
 
-import java.io.File;
+import java.io.*;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,7 +11,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -75,7 +77,30 @@ public class BlogController {
 
     @GetMapping("{fileName}")
     public void download(@PathVariable("fileName") String fileName, HttpServletResponse response) {
+        try {
+            InputStream inputStream = this.getClass().getResourceAsStream(fileName);
+            response.setContentType("application/force-download");
+            OutputStream outputStream = response.getOutputStream();
 
+            response.setHeader("Content-Disposition", "attachment;filename=" + URLEncoder.encode(fileName, "UTF-8"));//这个fileName应该是纯粹的文件名，不是路径
+
+            int b = 0;
+
+            byte[] buffer = new byte[1000000];
+            while (b != -1) {
+                b = inputStream.read(buffer);
+                if (b != -1) {
+                    outputStream.write(buffer, 0, b);
+                }
+            }
+
+            inputStream.close();
+            outputStream.close();
+            outputStream.flush();
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @GetMapping("/file-tree/{user}")
@@ -110,5 +135,27 @@ public class BlogController {
         }
 
         return new BlogInfo(blogPath, blogName, blogFileInfos);
+    }
+
+    @Autowired
+    TokenService tokenService;
+
+    @GetMapping("/getToken")
+    public String getToken() {
+        System.out.println("access to getToken");
+        String userID = "SunYiDaShaBi";
+        String token = tokenService.getToken(userID);
+        System.out.println(token);
+        return token;
+    }
+
+    @GetMapping("/testToken")
+    public String testToken(HttpServletRequest request) {
+        System.out.println("access to testToken");
+        String token = request.getHeader("token");
+        System.out.println("token:" + request.getHeader("token"));
+        tokenService.parseToken(token);
+        System.out.println("token pass");
+        return "token pass";
     }
 }
